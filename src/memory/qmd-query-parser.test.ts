@@ -72,6 +72,14 @@ describe("parseQmdMcporterJson", () => {
     expect(results).toEqual([{ docid: "abc", score: 0.2 }]);
   });
 
+  it("skips bracket-prefixed log lines when extracting JSON", () => {
+    const results = parseQmdMcporterJson(
+      `[INFO] warming cache\n{"structuredContent":{"results":[{"docid":"abc","score":0.3}]}}\n`,
+      "",
+    );
+    expect(results).toEqual([{ docid: "abc", score: 0.3 }]);
+  });
+
   it("throws when mcporter payload lacks results", () => {
     expect(() => parseQmdMcporterJson(JSON.stringify({ structuredContent: {} }), "")).toThrow(
       /qmd mcporter JSON response missing results array/i,

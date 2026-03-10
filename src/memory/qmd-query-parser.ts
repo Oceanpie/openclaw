@@ -157,19 +157,39 @@ function normalizeQmdResultsFromUnknown(payload: unknown): QmdQueryResult[] | nu
 }
 
 function normalizeQmdResultArray(value: unknown[]): QmdQueryResult[] | null {
-  const filtered = value.filter((entry): entry is JsonRecord => isRecord(entry));
-  if (filtered.length === 0) {
-    return [];
+  const results: QmdQueryResult[] = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) {
+      continue;
+    }
+    const docid = normalizeQmdDocId(entry.docid);
+    if (!docid) {
+      continue;
+    }
+    const normalized: QmdQueryResult = {
+      ...entry,
+      docid,
+      score: normalizeQmdScore(entry.score),
+    };
+    if (typeof entry.snippet === "string") {
+      normalized.snippet = entry.snippet;
+    }
+    results.push(normalized);
   }
-  return filtered.map((entry) => ({
-    ...entry,
-    score: normalizeQmdScore(entry.score),
-  }));
+  return results;
 }
 
-function normalizeQmdScore(score: unknown): number | undefined {
+function normalizeQmdDocId(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.replace(/^#/, "").trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeQmdScore(score: unknown): number {
   const value = typeof score === "number" ? score : Number(score);
-  return Number.isFinite(value) ? value : undefined;
+  return Number.isFinite(value) ? value : 0;
 }
 
 function extractFirstJsonArray(raw: string): string | null {
@@ -181,16 +201,27 @@ function extractFirstJsonArray(raw: string): string | null {
 }
 
 function extractFirstJsonValue(raw: string): string | null {
-  const arrayStart = raw.indexOf("[");
-  const objectStart = raw.indexOf("{");
-  if (arrayStart < 0 && objectStart < 0) {
-    return null;
-  }
-  if (objectStart >= 0 && (arrayStart < 0 || objectStart < arrayStart)) {
-    return extractJsonValue(raw, objectStart, "{", "}");
-  }
-  if (arrayStart >= 0) {
-    return extractJsonValue(raw, arrayStart, "[", "]");
+  let searchIndex = 0;
+  while (searchIndex < raw.length) {
+    const arrayStart = raw.indexOf("[", searchIndex);
+    const objectStart = raw.indexOf("{", searchIndex);
+    if (arrayStart < 0 && objectStart < 0) {
+      return null;
+    }
+    const useObject = objectStart >= 0 && (arrayStart < 0 || objectStart < arrayStart);
+    const start = useObject ? objectStart : arrayStart;
+    const open = useObject ? "{" : "[";
+    const close = useObject ? "}" : "]";
+    const extracted = extractJsonValue(raw, start, open, close);
+    if (extracted) {
+      try {
+        JSON.parse(extracted);
+        return extracted;
+      } catch {
+        // keep searching for the next candidate
+      }
+    }
+    searchIndex = start + 1;
   }
   return null;
 }
