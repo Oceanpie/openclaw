@@ -159,12 +159,17 @@ function normalizeQmdResultsFromUnknown(payload: unknown): QmdQueryResult[] | nu
 function normalizeQmdResultArray(value: unknown[]): QmdQueryResult[] | null {
   const filtered = value.filter((entry): entry is JsonRecord => isRecord(entry));
   if (filtered.length === 0) {
-    return null;
+    return [];
   }
   return filtered.map((entry) => ({
     ...entry,
-    score: typeof entry.score === "number" ? entry.score : Number(entry.score),
+    score: normalizeQmdScore(entry.score),
   }));
+}
+
+function normalizeQmdScore(score: unknown): number | undefined {
+  const value = typeof score === "number" ? score : Number(score);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 function extractFirstJsonArray(raw: string): string | null {
