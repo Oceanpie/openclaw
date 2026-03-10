@@ -116,7 +116,7 @@ function parseQmdQueryResultArray(raw: string): QmdQueryResult[] | null {
   }
 }
 
-function parseQmdJsonPayload(raw: string): unknown | null {
+function parseQmdJsonPayload(raw: string): unknown {
   try {
     return JSON.parse(raw) as unknown;
   } catch {
@@ -145,9 +145,6 @@ function normalizeQmdResultsFromUnknown(payload: unknown): QmdQueryResult[] | nu
   }
   if (isRecord(value.structuredContent)) {
     value = value.structuredContent;
-    if (Array.isArray(value)) {
-      return value as QmdQueryResult[];
-    }
     if (isRecord(value) && Array.isArray(value.results)) {
       return value.results as QmdQueryResult[];
     }
